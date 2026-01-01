@@ -3,22 +3,25 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerInputReader : MonoBehaviour
+public class PlayerInputReader : NetworkBehaviour
 {   
     [Header("Input Actions")]
     [SerializeField] private InputActionReference _Move;    
     [SerializeField] private InputActionReference _Jump;
 
-
     private NetworkObject _NetObj;
-    bool CanReadInput => _NetObj != null && _NetObj.IsOwner;
-
     public float Move { get; private set; }
     public event Action OnJumpInput;
 
-    void OnEnable()
+    void Awake()
     {
-        if (!CanReadInput) return;
+        _NetObj = GetComponent<NetworkObject>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (!IsOwner) return;
+
         if (_Move != null) _Move.action.Enable();
 
         if (_Jump != null)
@@ -28,9 +31,10 @@ public class PlayerInputReader : MonoBehaviour
         }
     }
 
-    void OnDisable()
+    public override void OnNetworkDespawn()
     {
-        if (!CanReadInput) return;
+        if (!IsOwner) return;
+
         if (_Jump != null)
         {
             _Jump.action.performed -= RaiseJumpInput;

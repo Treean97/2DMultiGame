@@ -18,6 +18,7 @@ public class PlayerMovement : MonoBehaviour
     void Awake()
     {
         _RB = GetComponent<Rigidbody2D>();
+        _NetObj = GetComponent<NetworkObject>();
         if (_Input == null) _Input = GetComponent<PlayerInputReader>();
     }
 
