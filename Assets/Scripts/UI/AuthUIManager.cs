@@ -2,17 +2,22 @@ using System;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Lobbies;
-using Unity.Services.Lobbies.Models;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class AuthUIManager : MonoBehaviour
 {
-    [Header("Auth UI")]
-    [SerializeField] private TMP_InputField _UsernameInput;
-    [SerializeField] private TMP_InputField _PasswordInput;
+    [Header("회원가입 UI")]
+    [SerializeField] private TMP_InputField _SignUpUsernameInput;
+    [SerializeField] private TMP_InputField _SignUpPasswordInput;
     [SerializeField] private Button _SignUpButton;
+
+    [Header("로그인 UI")]
+    [SerializeField] private TMP_InputField _SignInUsernameInput;
+    [SerializeField] private TMP_InputField _SignInPasswordInput;
     [SerializeField] private Button _SignInButton;
+
+    [Header("상태 표기")]
     [SerializeField] private TMP_Text _StatusText;
 
     void Awake()
@@ -30,8 +35,8 @@ public class AuthUIManager : MonoBehaviour
             return;
         }
 
-        string username = _UsernameInput != null ? _UsernameInput.text : "";
-        string password = _PasswordInput != null ? _PasswordInput.text : "";
+        string username = _SignUpUsernameInput != null ? _SignUpUsernameInput.text : "";
+        string password = _SignUpPasswordInput != null ? _SignUpPasswordInput.text : "";
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
@@ -42,7 +47,7 @@ public class AuthUIManager : MonoBehaviour
         SetInteractable(false);
         SetStatus("Signing up...");
 
-        bool ok;
+        bool ok = false;
         try
         {
             ok = await AuthManager._Inst.SignUpAsync(username, password);
@@ -50,7 +55,6 @@ public class AuthUIManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"[AuthUI] SignUp exception: {e}");
-            ok = false;
         }
 
         if (!ok)
@@ -60,10 +64,11 @@ public class AuthUIManager : MonoBehaviour
             return;
         }
 
+        // 가입 후 자동 로그인
         if (!AuthManager._Inst.IsSignedIn)
         {
             SetStatus("SignUp ok. Signing in...");
-            bool signedIn = await AuthManager._Inst.SignInAsync(username, password);
+            bool signedIn = await SafeSignIn(username, password);
             if (!signedIn)
             {
                 SetStatus("SignUp ok, but SignIn failed. (check console)");
@@ -86,8 +91,8 @@ public class AuthUIManager : MonoBehaviour
             return;
         }
 
-        string username = _UsernameInput != null ? _UsernameInput.text : "";
-        string password = _PasswordInput != null ? _PasswordInput.text : "";
+        string username = _SignInUsernameInput != null ? _SignInUsernameInput.text : "";
+        string password = _SignInPasswordInput != null ? _SignInPasswordInput.text : "";
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
@@ -98,16 +103,7 @@ public class AuthUIManager : MonoBehaviour
         SetInteractable(false);
         SetStatus("Signing in...");
 
-        bool ok;
-        try
-        {
-            ok = await AuthManager._Inst.SignInAsync(username, password);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AuthUI] SignIn exception: {e}");
-            ok = false;
-        }
+        bool ok = await SafeSignIn(username, password);
 
         if (!ok)
         {
@@ -120,6 +116,19 @@ public class AuthUIManager : MonoBehaviour
         await LogLobbyConnectionAsync();
 
         SetInteractable(true);
+    }
+
+    async Task<bool> SafeSignIn(string username, string password)
+    {
+        try
+        {
+            return await AuthManager._Inst.SignInAsync(username, password);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[AuthUI] SignIn exception: {e}");
+            return false;
+        }
     }
 
     async Task LogLobbyConnectionAsync()
@@ -145,8 +154,12 @@ public class AuthUIManager : MonoBehaviour
     {
         if (_SignUpButton != null) _SignUpButton.interactable = interactable;
         if (_SignInButton != null) _SignInButton.interactable = interactable;
-        if (_UsernameInput != null) _UsernameInput.interactable = interactable;
-        if (_PasswordInput != null) _PasswordInput.interactable = interactable;
+
+        if (_SignUpUsernameInput != null) _SignUpUsernameInput.interactable = interactable;
+        if (_SignUpPasswordInput != null) _SignUpPasswordInput.interactable = interactable;
+
+        if (_SignInUsernameInput != null) _SignInUsernameInput.interactable = interactable;
+        if (_SignInPasswordInput != null) _SignInPasswordInput.interactable = interactable;
     }
 
     void SetStatus(string msg)

@@ -36,6 +36,14 @@ public class AuthManager : MonoBehaviour
     public async Task<bool> SignInAsync(string username, string password)
     {
         await UgsBootstrap.EnsureInitAsync();
+
+        // 이미 로그인 상태면 시도하지 않음
+        if (AuthenticationService.Instance.IsSignedIn)
+        {
+            Debug.Log("[Auth] SignIn skipped: already signed in.");
+            return true;
+        }
+
         try
         {
             await AuthenticationService.Instance
@@ -48,4 +56,5 @@ public class AuthManager : MonoBehaviour
             return false;
         }
     }
+
 }
