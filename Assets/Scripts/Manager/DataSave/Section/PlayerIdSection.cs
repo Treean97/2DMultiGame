@@ -5,15 +5,15 @@ using UnityEngine;
 public class PlayerIdDTO
 {
     public string PlayerId;
-    public string Username; // 나중에 필요하면 같이 저장(지금은 비워도 됨)
+    public string Username;
 }
 
 public class PlayerIdSection : MonoBehaviour, ICloudSection
 {
     public string Key => "player_id";
 
-    [SerializeField] private string _PlayerId;
-    [SerializeField] private string _Username;
+    private string _PlayerId;
+    private string _Username;
 
     void OnEnable()
     {

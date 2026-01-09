@@ -344,6 +344,7 @@ GameObject:
   m_Component:
   - component: {fileID: 318030973}
   - component: {fileID: 318030974}
+  - component: {fileID: 318030976}
   - component: {fileID: 318030975}
   m_Layer: 5
   m_Name: Auth
@@ -386,6 +387,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 19b299a7ee8299149acfad7b13b367df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AuthManager
+  _PlayerIdSection: {fileID: 0}
 --- !u!114 &318030975
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -405,6 +407,18 @@ MonoBehaviour:
   _SignInPasswordInput: {fileID: 935085269}
   _SignInButton: {fileID: 1654061052}
   _StatusText: {fileID: 1101945891}
+--- !u!114 &318030976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 318030972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36d513c2b587c874591a319428c8dddb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerIdSection
 --- !u!1 &384622395
 GameObject:
   m_ObjectHideFlags: 0
@@ -893,6 +907,50 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.RectMask2D
   m_Padding: {x: -8, y: -5, z: -8, w: -5}
   m_Softness: {x: 0, y: 0}
+--- !u!1 &849466856
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 849466857}
+  - component: {fileID: 849466858}
+  m_Layer: 0
+  m_Name: CloudManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &849466857
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 849466856}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 628, y: 616, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &849466858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 849466856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27f5b0ff04cdad24bb7728a1bda183aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UGSCloudManager
 --- !u!1 &890048679
 GameObject:
   m_ObjectHideFlags: 0
@@ -3658,3 +3716,4 @@ SceneRoots:
   - {fileID: 1495427315}
   - {fileID: 1165391379}
   - {fileID: 256443312}
+  - {fileID: 849466857}
