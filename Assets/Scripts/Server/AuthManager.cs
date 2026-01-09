@@ -7,6 +7,8 @@ public class AuthManager : MonoBehaviour
 {
     public static AuthManager _Inst { get; private set; }
 
+    [SerializeField] private PlayerIdSection _PlayerIdSection;
+
     public bool IsSignedIn => AuthenticationService.Instance.IsSignedIn;
     public string PlayerId => AuthenticationService.Instance.PlayerId;
 
@@ -37,10 +39,17 @@ public class AuthManager : MonoBehaviour
     {
         await UgsBootstrap.EnsureInitAsync();
 
-        // 이미 로그인 상태면 시도하지 않음
+        // 이미 로그인 상태면 로그인 스킵
         if (AuthenticationService.Instance.IsSignedIn)
         {
             Debug.Log("[Auth] SignIn skipped: already signed in.");
+
+            if (_PlayerIdSection != null)
+                _PlayerIdSection.SetIdentity(AuthenticationService.Instance.PlayerId, username);
+
+            if (UGSCloudManager._Inst != null)
+                await UGSCloudManager._Inst.SaveAllAsync();
+
             return true;
         }
 
@@ -48,6 +57,13 @@ public class AuthManager : MonoBehaviour
         {
             await AuthenticationService.Instance
                 .SignInWithUsernamePasswordAsync(username, password);
+
+            if (_PlayerIdSection != null)
+                _PlayerIdSection.SetIdentity(AuthenticationService.Instance.PlayerId, username);
+
+            if (UGSCloudManager._Inst != null)
+                await UGSCloudManager._Inst.SaveAllAsync();
+
             return true;
         }
         catch (Exception e)
@@ -56,5 +72,6 @@ public class AuthManager : MonoBehaviour
             return false;
         }
     }
+
 
 }
