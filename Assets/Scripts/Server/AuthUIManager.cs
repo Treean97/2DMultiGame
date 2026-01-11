@@ -20,6 +20,9 @@ public class AuthUIManager : MonoBehaviour
     [Header("상태 표기")]
     [SerializeField] private TMP_Text _StatusText;
 
+    [Header("세팅")]
+    [SerializeField] private GameObject _LobbyUI;
+
     void Awake()
     {
         if (_SignUpButton != null) _SignUpButton.onClick.AddListener(() => _ = OnClickSignUp());
@@ -113,9 +116,20 @@ public class AuthUIManager : MonoBehaviour
         }
 
         SetStatus($"Auth ok. PlayerId={AuthManager._Inst.PlayerId}");
-        await LogLobbyConnectionAsync();
+        bool lobbyOk = await LogLobbyConnectionAsync(); // <- bool로 바꿀 거임
+        if (!lobbyOk)
+        {
+            SetInteractable(true);
+            return;
+        }
 
+        OpenLobbyUI();
         SetInteractable(true);
+    }
+
+    void OpenLobbyUI()
+    {
+        _LobbyUI.SetActive(true);
     }
 
     async Task<bool> SafeSignIn(string username, string password)
@@ -131,7 +145,7 @@ public class AuthUIManager : MonoBehaviour
         }
     }
 
-    async Task LogLobbyConnectionAsync()
+    async Task<bool> LogLobbyConnectionAsync()
     {
         try
         {
@@ -142,11 +156,13 @@ public class AuthUIManager : MonoBehaviour
 
             Debug.Log($"[AuthUI] 로비 서비스 접속 성공 (Query OK). results={res?.Results?.Count ?? 0}");
             SetStatus("Lobby connected. (Query OK)");
+            return true;
         }
         catch (Exception e)
         {
             Debug.LogError($"[AuthUI] 로비 서비스 접속 실패: {e}");
             SetStatus("Lobby connect failed. (check console)");
+            return false;
         }
     }
 

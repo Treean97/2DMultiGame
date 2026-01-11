@@ -33,6 +33,11 @@ public class LobbyUIManager : MonoBehaviour
         SetStatus("Lobby UI ready.");
     }
 
+    void OnEnable()
+    {
+        _ = RefreshList();
+    }
+
     async Task OnClickCreate()
     {
         if (!IsReady()) return;
@@ -42,25 +47,24 @@ public class LobbyUIManager : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(roomName))
         {
-            SetStatus("방 이름이 비어있습니다.");
+            SetStatus("Room name is empty.");
             return;
         }
 
         SetInteractable(false);
-        SetStatus("방 생성 중...");
+        SetStatus("Creating room...");
 
         bool ok = await LobbyManager._Inst.CreateLobbyAsync(roomName, _MaxPlayers, _IsPublic);
         if (!ok)
         {
-            SetStatus("방 생성 실패(콘솔 확인).");
+            SetStatus("Create room failed.");
             SetInteractable(true);
             return;
         }
 
-        // 생성 성공 로그 (요청한 수준)
         var lobby = LobbyManager._Inst.CurrentLobby;
         Debug.Log($"[LobbyUI] 방 생성 성공. name={lobby.Name}, id={lobby.Id}, code={lobby.LobbyCode}");
-        SetStatus($"방 생성 성공: {lobby.Name}");
+        SetStatus($"Room created: {lobby.Name}");
 
         await RefreshList();
         SetInteractable(true);
@@ -68,21 +72,23 @@ public class LobbyUIManager : MonoBehaviour
 
     async Task RefreshList()
     {
-        if (!IsReady()) return;
+        if (!IsReady())
+        {
+            return;
+        }
 
         SetInteractable(false);
-        SetStatus("로비 목록 불러오는 중...");
+        SetStatus("Loading lobby list...");
 
         List<Lobby> lobbies = await LobbyManager._Inst.QueryAsync(20);
         RebuildList(lobbies);
 
-        SetStatus($"로비 {lobbies.Count}개 표시됨.");
+        SetStatus("Lobby list updated.");
         SetInteractable(true);
     }
 
     void RebuildList(List<Lobby> lobbies)
     {
-        // 기존 UI 제거
         for (int i = 0; i < _Spawned.Count; i++)
         {
             if (_Spawned[i] != null) Destroy(_Spawned[i].gameObject);
@@ -106,19 +112,19 @@ public class LobbyUIManager : MonoBehaviour
         if (!IsReady()) return;
 
         SetInteractable(false);
-        SetStatus($"참가 중... ({lobby.Name})");
+        SetStatus($"Joining... ({lobby.Name})");
 
         bool ok = await LobbyManager._Inst.JoinByIdAsync(lobby.Id);
         if (!ok)
         {
-            SetStatus("참가 실패(콘솔 확인).");
+            SetStatus("Join failed.");
             SetInteractable(true);
             return;
         }
 
         var joined = LobbyManager._Inst.CurrentLobby;
         Debug.Log($"[LobbyUI] 방 참가 성공. name={joined.Name}, id={joined.Id}");
-        SetStatus($"참가 성공: {joined.Name}");
+        SetStatus($"Joined: {joined.Name}");
         SetInteractable(true);
     }
 
@@ -136,7 +142,7 @@ public class LobbyUIManager : MonoBehaviour
         }
         if (!AuthManager._Inst.IsSignedIn)
         {
-            SetStatus("먼저 로그인해야 합니다.");
+            SetStatus("You must sign in first.");
             return false;
         }
         return true;
