@@ -99,4 +99,26 @@ public class LobbyManager : MonoBehaviour
             return new List<Lobby>();
         }
     }
+
+    public async Task<bool> JoinByIdAsync(string lobbyId)
+    {
+        await UgsBootstrap.EnsureInitAsync();
+
+        try
+        {
+            var options = new JoinLobbyByIdOptions
+            {
+                Player = new Player(AuthenticationService.Instance.PlayerId),
+            };
+
+            CurrentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
+            Debug.Log($"[Lobby] Joined by id. name={CurrentLobby.Name}");
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Lobby] JoinById failed: {e}");
+            return false;
+        }
+    }
 }
