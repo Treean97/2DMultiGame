@@ -9,10 +9,18 @@ using UnityEngine;
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager _Inst { get; private set; }
-    public Lobby CurrentLobby { get; private set; }
+    public Lobby _CurrentLobby { get; private set; }
+
+    public event Action<Lobby> OnLobbyEntered; // Create/Join 성공
+    public event Action<Lobby> OnLobbyUpdated; // 2초 폴링 갱신
+    public event Action OnLobbyLeft; // Leave 성공
+    public event Action<List<Lobby>> OnLobbyListUpdated; // Query 결과
 
     float _HeartbeatTimer;
     const float HEARTBEAT_INTERVAL = 15f;
+
+    float _PollTimer;
+    const float POLL_INTERVAL = 2f; // 매 n초 갱신
 
     void Awake()
     {
@@ -23,21 +31,58 @@ public class LobbyManager : MonoBehaviour
 
     void Update()
     {
-        if (CurrentLobby == null) return;
-        if (CurrentLobby.HostId != AuthenticationService.Instance.PlayerId) return;
+        if (_CurrentLobby == null) return;
 
-        _HeartbeatTimer += Time.unscaledDeltaTime;
-        if (_HeartbeatTimer >= HEARTBEAT_INTERVAL)
+        // 호스트만 heartbeat
+        if (_CurrentLobby.HostId == AuthenticationService.Instance.PlayerId)
         {
-            _HeartbeatTimer = 0f;
-            _ = SendHeartbeatSafe();
+            _HeartbeatTimer += Time.unscaledDeltaTime;
+            if (_HeartbeatTimer >= HEARTBEAT_INTERVAL)
+            {
+                _HeartbeatTimer = 0f;
+                _ = SendHeartbeatSafe();
+            }
+        }
+
+        // 모두 2초 폴링
+        _PollTimer += Time.unscaledDeltaTime;
+        if (_PollTimer >= POLL_INTERVAL)
+        {
+            _PollTimer = 0f;
+            _ = PollCurrentLobbySafe();
         }
     }
 
     async Task SendHeartbeatSafe()
     {
-        try { await LobbyService.Instance.SendHeartbeatPingAsync(CurrentLobby.Id); }
+        try { await LobbyService.Instance.SendHeartbeatPingAsync(_CurrentLobby.Id); }
         catch (Exception e) { Debug.LogWarning($"[Lobby] Heartbeat failed: {e.Message}"); }
+    }
+
+    async Task PollCurrentLobbySafe()
+    {
+        if (_CurrentLobby == null) return;
+
+        try
+        {
+            _CurrentLobby = await LobbyService.Instance.GetLobbyAsync(_CurrentLobby.Id);
+            OnLobbyUpdated?.Invoke(_CurrentLobby);
+        }
+        catch (Exception e)
+        {
+            // 실패
+            Debug.LogWarning($"[Lobby] Poll failed: {e.Message}");
+        }
+    }
+
+    void SetLobby(Lobby lobby, bool fireEntered)
+    {
+        _CurrentLobby = lobby;
+        _HeartbeatTimer = 0f;
+        _PollTimer = 0f;
+
+        if (fireEntered) OnLobbyEntered?.Invoke(_CurrentLobby);
+        OnLobbyUpdated?.Invoke(_CurrentLobby);
     }
 
     public async Task<bool> CreateLobbyAsync(string lobbyName, int maxPlayers, bool isPublic)
@@ -54,49 +99,16 @@ public class LobbyManager : MonoBehaviour
                 Player = new Player(AuthenticationService.Instance.PlayerId),
             };
 
-            CurrentLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
-            Debug.Log($"[Lobby] Created. name={CurrentLobby.Name}, code={CurrentLobby.LobbyCode}");
+            var lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
+            SetLobby(lobby, fireEntered: true);
+
+            Debug.Log($"[Lobby] Created. name={_CurrentLobby.Name}, code={_CurrentLobby.LobbyCode}");
             return true;
         }
         catch (Exception e)
         {
             Debug.LogError($"[Lobby] Create failed: {e}");
             return false;
-        }
-    }
-
-    public async Task<bool> JoinByCodeAsync(string code)
-    {
-        await UgsBootstrap.EnsureInitAsync();
-        try
-        {
-            var options = new JoinLobbyByCodeOptions
-            {
-                Player = new Player(AuthenticationService.Instance.PlayerId),
-            };
-            CurrentLobby = await LobbyService.Instance.JoinLobbyByCodeAsync(code, options);
-            Debug.Log($"[Lobby] Joined. name={CurrentLobby.Name}");
-            return true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Lobby] JoinByCode failed: {e}");
-            return false;
-        }
-    }
-
-    public async Task<List<Lobby>> QueryAsync(int count = 20)
-    {
-        await UgsBootstrap.EnsureInitAsync();
-        try
-        {
-            var res = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions { Count = count });
-            return res.Results ?? new List<Lobby>();
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Lobby] Query failed: {e}");
-            return new List<Lobby>();
         }
     }
 
@@ -111,13 +123,79 @@ public class LobbyManager : MonoBehaviour
                 Player = new Player(AuthenticationService.Instance.PlayerId),
             };
 
-            CurrentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
-            Debug.Log($"[Lobby] Joined by id. name={CurrentLobby.Name}");
+            var lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
+            SetLobby(lobby, fireEntered: true);
+
+            Debug.Log($"[Lobby] Joined by id. name={_CurrentLobby.Name}");
             return true;
         }
         catch (Exception e)
         {
             Debug.LogError($"[Lobby] JoinById failed: {e}");
+            return false;
+        }
+    }
+
+    public async Task<bool> JoinByCodeAsync(string code)
+    {
+        await UgsBootstrap.EnsureInitAsync();
+
+        try
+        {
+            var options = new JoinLobbyByCodeOptions
+            {
+                Player = new Player(AuthenticationService.Instance.PlayerId),
+            };
+
+            var lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(code, options);
+            SetLobby(lobby, fireEntered: true);
+
+            Debug.Log($"[Lobby] Joined. name={_CurrentLobby.Name}");
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Lobby] JoinByCode failed: {e}");
+            return false;
+        }
+    }
+
+    public async Task QueryAndNotifyAsync(int count = 20)
+    {
+        await UgsBootstrap.EnsureInitAsync();
+
+        try
+        {
+            var res = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions { Count = count });
+            OnLobbyListUpdated?.Invoke(res.Results ?? new List<Lobby>());
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Lobby] Query failed: {e}");
+            OnLobbyListUpdated?.Invoke(new List<Lobby>());
+        }
+    }
+
+    public async Task<bool> LeaveAsync()
+    {
+        await UgsBootstrap.EnsureInitAsync();
+
+        if (_CurrentLobby == null) return true;
+
+        try
+        {
+            await LobbyService.Instance.RemovePlayerAsync(_CurrentLobby.Id, AuthenticationService.Instance.PlayerId);
+
+            _CurrentLobby = null;
+            _HeartbeatTimer = 0f;
+            _PollTimer = 0f;
+
+            OnLobbyLeft?.Invoke();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Lobby] Leave failed: {e}");
             return false;
         }
     }

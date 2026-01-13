@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using TMPro;
-using Unity.Services.Lobbies;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,9 +19,6 @@ public class AuthUIManager : MonoBehaviour
     [Header("상태 표기")]
     [SerializeField] private TMP_Text _StatusText;
 
-    [Header("세팅")]
-    [SerializeField] private GameObject _LobbyUI;
-
     void Awake()
     {
         if (_SignUpButton != null) _SignUpButton.onClick.AddListener(() => _ = OnClickSignUp());
@@ -34,7 +30,7 @@ public class AuthUIManager : MonoBehaviour
     {
         if (AuthManager._Inst == null)
         {
-            Debug.LogError("[AuthUI] AuthManager._Inst is null. 씬에 AuthManager가 있어야 합니다.");
+            Debug.LogError("[AuthUI] AuthManager가 씬에 없습니다.");
             return;
         }
 
@@ -50,16 +46,7 @@ public class AuthUIManager : MonoBehaviour
         SetInteractable(false);
         SetStatus("Signing up...");
 
-        bool ok = false;
-        try
-        {
-            ok = await AuthManager._Inst.SignUpAsync(username, password);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AuthUI] SignUp exception: {e}");
-        }
-
+        bool ok = await AuthManager._Inst.SignUpAsync(username, password);
         if (!ok)
         {
             SetStatus("SignUp failed. (check console)");
@@ -81,16 +68,15 @@ public class AuthUIManager : MonoBehaviour
         }
 
         SetStatus($"Auth ok. PlayerId={AuthManager._Inst.PlayerId}");
-        await LogLobbyConnectionAsync();
-
         SetInteractable(true);
+        // UI 전환은 AuthManager.OnSignedIn 이벤트를 LobbyUIManager가 처리
     }
 
     async Task OnClickSignIn()
     {
         if (AuthManager._Inst == null)
         {
-            Debug.LogError("[AuthUI] AuthManager._Inst is null. 씬에 AuthManager가 있어야 합니다.");
+            Debug.LogError("[AuthUI] AuthManager가 씬에 없습니다.");
             return;
         }
 
@@ -107,7 +93,6 @@ public class AuthUIManager : MonoBehaviour
         SetStatus("Signing in...");
 
         bool ok = await SafeSignIn(username, password);
-
         if (!ok)
         {
             SetStatus("SignIn failed. (check console)");
@@ -116,52 +101,16 @@ public class AuthUIManager : MonoBehaviour
         }
 
         SetStatus($"Auth ok. PlayerId={AuthManager._Inst.PlayerId}");
-        bool lobbyOk = await LogLobbyConnectionAsync(); // <- bool로 바꿀 거임
-        if (!lobbyOk)
-        {
-            SetInteractable(true);
-            return;
-        }
-
-        OpenLobbyUI();
         SetInteractable(true);
-    }
-
-    void OpenLobbyUI()
-    {
-        _LobbyUI.SetActive(true);
+        // UI 전환은 AuthManager.OnSignedIn 이벤트를 LobbyUIManager가 처리
     }
 
     async Task<bool> SafeSignIn(string username, string password)
     {
-        try
-        {
-            return await AuthManager._Inst.SignInAsync(username, password);
-        }
+        try { return await AuthManager._Inst.SignInAsync(username, password); }
         catch (Exception e)
         {
             Debug.LogError($"[AuthUI] SignIn exception: {e}");
-            return false;
-        }
-    }
-
-    async Task<bool> LogLobbyConnectionAsync()
-    {
-        try
-        {
-            await UgsBootstrap.EnsureInitAsync();
-
-            var options = new QueryLobbiesOptions { Count = 1 };
-            var res = await LobbyService.Instance.QueryLobbiesAsync(options);
-
-            Debug.Log($"[AuthUI] 로비 서비스 접속 성공 (Query OK). results={res?.Results?.Count ?? 0}");
-            SetStatus("Lobby connected. (Query OK)");
-            return true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AuthUI] 로비 서비스 접속 실패: {e}");
-            SetStatus("Lobby connect failed. (check console)");
             return false;
         }
     }
