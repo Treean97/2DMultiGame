@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TMPro;
@@ -11,20 +12,22 @@ public class LobbyUIManager : MonoBehaviour
     [SerializeField] private AuthManager _AuthManager;
     [SerializeField] private LobbyManager _LobbyManager;
 
-    [Header("Panels (Completely Separate)")]
-    [SerializeField] private GameObject _LobbyPanel; // 로비 전용 패널(목록/생성)
-    [SerializeField] private GameObject _RoomPanel;  // 룸 전용 패널(참가자/나가기)
+    [Header("Panels")]
+    [SerializeField] private GameObject _LobbyPanel;
+    [SerializeField] private GameObject _RoomPanel;
 
-    [Header("Create Room UI (LobbyPanel)")]
+    [Header("Create Room UI")]
+    [SerializeField] private Button _CreateRoomButton;
+    [SerializeField] private GameObject _CreateRoomUI;
     [SerializeField] private TMP_InputField _RoomNameInput;
-    [SerializeField] private Button _CreateButton;
+    [SerializeField] private Button _CreateRoomConfirmButton;
 
-    [Header("List UI (LobbyPanel)")]
+    [Header("List UI")]
     [SerializeField] private Button _RefreshButton;
     [SerializeField] private Transform _ListContent;
     [SerializeField] private LobbyRoomItem _RoomItemPrefab;
 
-    [Header("Status (optional)")]
+    [Header("Status")]
     [SerializeField] private TMP_Text _StatusText;
 
     [Header("Options")]
@@ -35,11 +38,12 @@ public class LobbyUIManager : MonoBehaviour
 
     void Awake()
     {
-        if (_CreateButton != null) _CreateButton.onClick.AddListener(() => _ = OnClickCreate());
+        if (_CreateRoomConfirmButton != null) _CreateRoomConfirmButton.onClick.AddListener(() => _ = OnClickCreate());
         if (_RefreshButton != null) _RefreshButton.onClick.AddListener(() => _ = RefreshList());
+        if (_CreateRoomButton != null) _CreateRoomButton.onClick.AddListener(ShowCreateRoomUI);
     }
 
-    void OnEnable()
+    async void OnEnable()
     {
         if (_AuthManager != null) _AuthManager.OnSignedIn += HandleSignedIn;
 
@@ -50,9 +54,19 @@ public class LobbyUIManager : MonoBehaviour
             _LobbyManager.OnLobbyListUpdated += HandleLobbyListUpdated;
         }
 
-        // 시작 상태
-        if (_AuthManager != null && _AuthManager.IsSignedIn) ShowLobbyPanel();
-        else HideAllPanels(); // 로그인 UI는 AuthUIManager가 담당한다고 가정
+        try
+        {
+            await UgsBootstrap.EnsureInitAsync();
+        }
+        catch (Exception e)
+        {
+            HideAllUI();
+            SetStatus($"UGS init failed: {e.Message}");
+            return;
+        }
+
+        if (_AuthManager != null && _AuthManager.IsSignedIn) ShowLobbyUI();
+        else HideAllUI();
     }
 
     void OnDisable()
@@ -69,18 +83,18 @@ public class LobbyUIManager : MonoBehaviour
 
     void HandleSignedIn()
     {
-        ShowLobbyPanel();
+        ShowLobbyUI();
     }
 
     void HandleLobbyEntered(Lobby lobby)
     {
-        ShowRoomPanel();
+        ShowRoomUI();
         SetStatus($"Entered: {lobby?.Name}");
     }
 
     void HandleLobbyLeft()
     {
-        ShowLobbyPanel();
+        ShowLobbyUI();
         SetStatus("Left lobby.");
     }
 
@@ -91,26 +105,60 @@ public class LobbyUIManager : MonoBehaviour
         SetInteractable(true);
     }
 
-    void HideAllPanels()
+    void HideAllUI()
     {
         if (_LobbyPanel != null) _LobbyPanel.SetActive(false);
         if (_RoomPanel != null) _RoomPanel.SetActive(false);
+
+        // 로비 패널이 꺼져도 Create UI 오브젝트가 씬에 남아있을 수 있으니 명시적으로 끔
+        if (_RoomNameInput != null) _RoomNameInput.gameObject.SetActive(false);
+        if (_CreateRoomConfirmButton != null) _CreateRoomConfirmButton.gameObject.SetActive(false);
+        if (_CreateRoomUI != null) _CreateRoomUI.SetActive(false);
     }
 
-    void ShowLobbyPanel()
+    void ShowLobbyUI()
     {
         if (_LobbyPanel != null) _LobbyPanel.SetActive(true);
         if (_RoomPanel != null) _RoomPanel.SetActive(false);
 
+        // 로비 목록 화면 기본 상태
+        if (_RoomNameInput != null) _RoomNameInput.gameObject.SetActive(false);
+        if (_CreateRoomConfirmButton != null) _CreateRoomConfirmButton.gameObject.SetActive(false);
+        if (_CreateRoomUI != null) _CreateRoomUI.SetActive(false);
+
         _ = RefreshList();
     }
 
-    void ShowRoomPanel()
+    void ShowRoomUI()
     {
         if (_LobbyPanel != null) _LobbyPanel.SetActive(false);
         if (_RoomPanel != null) _RoomPanel.SetActive(true);
     }
 
+    // _CreateRoomButton 클릭 시 호출: Create UI 표시
+    void ShowCreateRoomUI()
+    {
+        if (!IsReady()) return;
+
+        if (_CreateRoomUI != null)
+        {
+            _CreateRoomUI.SetActive(true);
+        }
+
+        if (_RoomNameInput != null)
+        {
+            _RoomNameInput.gameObject.SetActive(true);
+            _RoomNameInput.Select();
+            _RoomNameInput.ActivateInputField();
+        }
+
+        if (_CreateRoomConfirmButton != null)
+            _CreateRoomConfirmButton.gameObject.SetActive(true);
+
+        SetStatus("Create room UI opened.");
+    }
+
+    // 방 생성
     async Task OnClickCreate()
     {
         if (!IsReady()) return;
@@ -146,8 +194,14 @@ public class LobbyUIManager : MonoBehaviour
         SetInteractable(false);
         SetStatus("Loading lobby list...");
 
-        await _LobbyManager.QueryAndNotifyAsync(20);
-        // 결과는 OnLobbyListUpdated 이벤트로 옴
+        try
+        {
+            await _LobbyManager.QueryAndNotifyAsync(20);
+        }
+        finally
+        {
+            SetInteractable(true);
+        }
     }
 
     void RebuildList(List<Lobby> lobbies)
@@ -176,16 +230,19 @@ public class LobbyUIManager : MonoBehaviour
         SetInteractable(false);
         SetStatus($"Joining... ({lobby.Name})");
 
-        bool ok = await _LobbyManager.JoinByIdAsync(lobby.Id);
-        if (!ok)
+        try
         {
-            SetStatus("Join failed.");
-            SetInteractable(true);
-            return;
+            bool ok = await _LobbyManager.JoinByIdAsync(lobby.Id);
+            if (!ok)
+            {
+                SetStatus("Join failed.");
+                return;
+            }
         }
-
-        // 성공 전환은 OnLobbyEntered 이벤트가 처리
-        SetInteractable(true);
+        finally
+        {
+            SetInteractable(true);
+        }
     }
 
     bool IsReady()
@@ -210,7 +267,8 @@ public class LobbyUIManager : MonoBehaviour
 
     void SetInteractable(bool interactable)
     {
-        if (_CreateButton != null) _CreateButton.interactable = interactable;
+        if (_CreateRoomButton != null) _CreateRoomButton.interactable = interactable;
+        if (_CreateRoomConfirmButton != null) _CreateRoomConfirmButton.interactable = interactable;
         if (_RefreshButton != null) _RefreshButton.interactable = interactable;
         if (_RoomNameInput != null) _RoomNameInput.interactable = interactable;
     }
