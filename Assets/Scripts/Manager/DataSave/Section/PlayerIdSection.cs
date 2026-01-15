@@ -8,12 +8,13 @@ public class PlayerIdDTO
     public string Username;   // 표시명(비어있을 때 최초 1회만 PlayerId로 초기화)
 }
 
+
 public class PlayerIdSection : MonoBehaviour, ICloudSection
 {
     public string Key => "player_id";
 
-    private string _PlayerId;
-    private string _Username;
+    public string _PlayerId {get; private set;}
+    public string _Username { get; private set; }
 
     void OnEnable()
     {
@@ -40,14 +41,14 @@ public class PlayerIdSection : MonoBehaviour, ICloudSection
 
         bool changed = false;
 
-        // 1) 기록용 PlayerId는 항상 갱신
+        // 기록용 PlayerId는 항상 갱신
         if (_PlayerId != newPlayerId)
         {
             _PlayerId = newPlayerId;
             changed = true;
         }
 
-        // 2) Username은 비어있을 때만 최초 1회 세팅
+        // Username은 비어있을 때만 최초 1회 세팅
         if (string.IsNullOrWhiteSpace(_Username) && !string.IsNullOrWhiteSpace(newDefaultUsername))
         {
             _Username = newDefaultUsername;

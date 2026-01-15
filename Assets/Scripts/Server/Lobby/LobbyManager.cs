@@ -96,7 +96,10 @@ public class LobbyManager : MonoBehaviour
             var options = new CreateLobbyOptions
             {
                 IsPrivate = !isPublic,
-                Player = new Player(AuthenticationService.Instance.PlayerId),
+                Player = new Player(AuthenticationService.Instance.PlayerId, data: new Dictionary<string, PlayerDataObject>
+                {
+                    { "username", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, AuthManager._Inst.Username ?? "") }
+                }),
             };
 
             var lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
@@ -120,7 +123,10 @@ public class LobbyManager : MonoBehaviour
         {
             var options = new JoinLobbyByIdOptions
             {
-                Player = new Player(AuthenticationService.Instance.PlayerId),
+                Player = new Player(AuthenticationService.Instance.PlayerId, data: new Dictionary<string, PlayerDataObject>
+                {
+                    { "username", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, AuthManager._Inst.Username ?? "") }
+                }),
             };
 
             var lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
@@ -144,7 +150,10 @@ public class LobbyManager : MonoBehaviour
         {
             var options = new JoinLobbyByCodeOptions
             {
-                Player = new Player(AuthenticationService.Instance.PlayerId),
+                Player = new Player(AuthenticationService.Instance.PlayerId, data: new Dictionary<string, PlayerDataObject>
+                {
+                    { "username", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, AuthManager._Inst.Username ?? "") }
+                }),
             };
 
             var lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(code, options);

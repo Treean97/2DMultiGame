@@ -52,7 +52,15 @@ public class LobbyRoomUI : MonoBehaviour
             if (players != null)
             {
                 for (int i = 0; i < players.Count; i++)
-                    sb.AppendLine($"- {players[i].Id}");
+                {
+                    var p = players[i];
+
+                    string name = p.Id; // fallback
+                    if (p.Data != null && p.Data.TryGetValue("username", out var u) && !string.IsNullOrWhiteSpace(u.Value))
+                        name = u.Value;
+
+                    sb.AppendLine($"- {name}");
+                }
             }
 
             _PlayersText.text = sb.ToString();

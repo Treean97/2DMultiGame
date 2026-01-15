@@ -11,6 +11,8 @@ public class AuthManager : MonoBehaviour
 
     public bool IsSignedIn => AuthenticationService.Instance.IsSignedIn;
     public string PlayerId => AuthenticationService.Instance.PlayerId;
+    public string Username => _PlayerIdSection != null ? _PlayerIdSection._Username : null;
+    public string LoginId => _PlayerIdSection != null ? _PlayerIdSection._PlayerId : null;
 
     public event Action OnSignedIn;
 

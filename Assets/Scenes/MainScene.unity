@@ -2095,7 +2095,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 19b299a7ee8299149acfad7b13b367df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AuthManager
-  _PlayerIdSection: {fileID: 0}
+  _PlayerIdSection: {fileID: 757328303}
 --- !u!114 &757328303
 MonoBehaviour:
   m_ObjectHideFlags: 0
