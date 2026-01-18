@@ -6,6 +6,8 @@ using TMPro;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
+using Unity.Services.Relay;
+using Unity.Services.Relay.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -24,6 +26,8 @@ public class LobbyRoomUIManager : MonoBehaviour
     [SerializeField] private Button _StartButton;
     private const string K_NextScene = "nextScene";   // 키
     [SerializeField] private string _NextSceneName = "GameScene"; // 값
+    private const string K_RelayJoinCode = "relayJoinCode";
+
 
     void Awake()
     {
@@ -53,18 +57,28 @@ public class LobbyRoomUIManager : MonoBehaviour
     {
         if (lobby == null) return;
 
-        // Start 버튼은 호스트만 활성화
         if (_StartButton != null)
             _StartButton.interactable = (lobby.HostId == AuthenticationService.Instance.PlayerId);
 
-        // Lobby Data에 nextScene이 세팅되면 모두 씬 전환
-        if (lobby.Data != null && lobby.Data.TryGetValue(K_NextScene, out var sceneObj))
+        if (lobby.Data != null)
         {
-            string sceneName = sceneObj.Value;
-            if (!string.IsNullOrWhiteSpace(sceneName))
+            // relayJoinCode 캐시 (클라이언트가 GameScene에서 사용)
+            if (lobby.Data.TryGetValue(K_RelayJoinCode, out var codeObj))
             {
-                SceneManager.LoadScene(sceneName);
-                return;
+                string joinCode = codeObj.Value;
+                if (!string.IsNullOrWhiteSpace(joinCode))
+                    _LobbyManager.SetRelayJoinCode(joinCode);
+            }
+
+            // nextScene 감지 시 씬 이동
+            if (lobby.Data.TryGetValue(K_NextScene, out var sceneObj))
+            {
+                string sceneName = sceneObj.Value;
+                if (!string.IsNullOrWhiteSpace(sceneName))
+                {
+                    SceneManager.LoadScene(sceneName);
+                    return;
+                }
             }
         }
 
@@ -102,17 +116,28 @@ public class LobbyRoomUIManager : MonoBehaviour
         var lobby = _LobbyManager._CurrentLobby;
         if (lobby == null) return;
 
-        // 호스트만 Start 가능
         if (lobby.HostId != AuthenticationService.Instance.PlayerId)
             return;
 
-        var data = new Dictionary<string, DataObject>
-        {
-            { K_NextScene, new DataObject(DataObject.VisibilityOptions.Member, _NextSceneName) }
-        };
-
         try
         {
+            // Host가 Relay Allocation 생성
+            int maxConnections = Mathf.Max(1, lobby.MaxPlayers - 1);
+            Allocation alloc = await RelayService.Instance.CreateAllocationAsync(maxConnections);
+
+            // JoinCode 생성
+            string joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+
+            // Host는 Allocation/JoinCode를 LobbyManager에 캐시
+            _LobbyManager.SetRelayAsHost(alloc, joinCode);
+
+            // Lobby Data에 relayJoinCode + nextScene 저장
+            var data = new Dictionary<string, DataObject>
+            {
+                { K_RelayJoinCode, new DataObject(DataObject.VisibilityOptions.Member, joinCode) },
+                { K_NextScene,     new DataObject(DataObject.VisibilityOptions.Member, _NextSceneName) }
+            };
+
             await LobbyService.Instance.UpdateLobbyAsync(
                 lobby.Id,
                 new UpdateLobbyOptions { Data = data }
@@ -123,6 +148,7 @@ public class LobbyRoomUIManager : MonoBehaviour
             Debug.LogError($"[Room] Start failed: {e}");
         }
     }
+
 
     async Task OnClickLeave()
     {

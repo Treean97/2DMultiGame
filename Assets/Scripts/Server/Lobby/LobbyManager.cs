@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
+using Unity.Services.Relay.Models;
 using UnityEngine;
 
 public class LobbyManager : MonoBehaviour
@@ -21,6 +22,10 @@ public class LobbyManager : MonoBehaviour
 
     float _PollTimer;
     const float POLL_INTERVAL = 2f; // 매 n초 갱신
+
+    public Allocation _HostAllocation { get; private set; } // Host만 세팅
+    public string _RelayJoinCode { get; private set; }      // Host/Client 모두 사용
+
 
     void Awake()
     {
@@ -51,6 +56,23 @@ public class LobbyManager : MonoBehaviour
             _PollTimer = 0f;
             _ = PollCurrentLobbySafe();
         }
+    }
+
+    public void SetRelayAsHost(Allocation allocation, string joinCode)
+    {
+        _HostAllocation = allocation;
+        _RelayJoinCode = joinCode;
+    }
+
+    public void SetRelayJoinCode(string joinCode)
+    {
+        _RelayJoinCode = joinCode;
+    }
+
+    public void ClearRelayCache()
+    {
+        _HostAllocation = null;
+        _RelayJoinCode = null;
     }
 
     async Task SendHeartbeatSafe()
@@ -195,11 +217,12 @@ public class LobbyManager : MonoBehaviour
         {
             await LobbyService.Instance.RemovePlayerAsync(_CurrentLobby.Id, AuthenticationService.Instance.PlayerId);
 
+            
             _CurrentLobby = null;
             _HeartbeatTimer = 0f;
-            _PollTimer = 0f;
-
+            _PollTimer = 0f;           
             OnLobbyLeft?.Invoke();
+            ClearRelayCache();
             return true;
         }
         catch (Exception e)
