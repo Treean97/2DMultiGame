@@ -28,7 +28,6 @@ public class LobbyRoomUIManager : MonoBehaviour
     [SerializeField] private string _NextSceneName = "GameScene"; // 값
     private const string K_RelayJoinCode = "relayJoinCode";
 
-
     void Awake()
     {
         if (_LeaveButton != null)
@@ -43,7 +42,7 @@ public class LobbyRoomUIManager : MonoBehaviour
         if (_LobbyManager != null)
         {
             _LobbyManager.OnLobbyUpdated += HandleLobbyUpdated;
-            HandleLobbyUpdated(_LobbyManager._CurrentLobby); // 진입 시 1회 반영
+            HandleLobbyUpdated(_LobbyManager._CurrentLobby);
         }
     }
 
@@ -67,7 +66,10 @@ public class LobbyRoomUIManager : MonoBehaviour
             {
                 string joinCode = codeObj.Value;
                 if (!string.IsNullOrWhiteSpace(joinCode))
-                    _LobbyManager.SetRelayJoinCode(joinCode);
+                {
+                    if (GameSessionManager._Inst != null)
+                        GameSessionManager._Inst.SetRelayJoinCode(joinCode);
+                }
             }
 
             // nextScene 감지 시 씬 이동
@@ -97,7 +99,7 @@ public class LobbyRoomUIManager : MonoBehaviour
                 {
                     var p = players[i];
 
-                    string name = p.Id; // fallback
+                    string name = p.Id;
                     if (p.Data != null && p.Data.TryGetValue("username", out var u) && !string.IsNullOrWhiteSpace(u.Value))
                         name = u.Value;
 
@@ -119,19 +121,22 @@ public class LobbyRoomUIManager : MonoBehaviour
         if (lobby.HostId != AuthenticationService.Instance.PlayerId)
             return;
 
+        if (GameSessionManager._Inst == null)
+        {
+            Debug.LogError("[Room] GameSessionManager가 씬에 없습니다. (DontDestroyOnLoad 싱글톤 필요)");
+            return;
+        }
+
         try
         {
-            // Host가 Relay Allocation 생성
             int maxConnections = Mathf.Max(1, lobby.MaxPlayers - 1);
             Allocation alloc = await RelayService.Instance.CreateAllocationAsync(maxConnections);
 
-            // JoinCode 생성
             string joinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
 
-            // Host는 Allocation/JoinCode를 LobbyManager에 캐시
-            _LobbyManager.SetRelayAsHost(alloc, joinCode);
+            // Host 캐시는 GameSessionManager가 담당
+            GameSessionManager._Inst.SetRelayAsHost(alloc, joinCode);
 
-            // Lobby Data에 relayJoinCode + nextScene 저장
             var data = new Dictionary<string, DataObject>
             {
                 { K_RelayJoinCode, new DataObject(DataObject.VisibilityOptions.Member, joinCode) },
@@ -149,11 +154,9 @@ public class LobbyRoomUIManager : MonoBehaviour
         }
     }
 
-
     async Task OnClickLeave()
     {
         if (_LobbyManager == null) return;
         await _LobbyManager.LeaveAsync();
-        // 화면 전환은 LobbyUIManager가 OnLobbyLeft로 처리
     }
 }

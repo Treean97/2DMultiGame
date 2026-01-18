@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
-using Unity.Services.Relay.Models;
 using UnityEngine;
 
 public class LobbyManager : MonoBehaviour
@@ -14,7 +13,7 @@ public class LobbyManager : MonoBehaviour
 
     public event Action<Lobby> OnLobbyEntered; // Create/Join 성공
     public event Action<Lobby> OnLobbyUpdated; // 2초 폴링 갱신
-    public event Action OnLobbyLeft; // Leave 성공
+    public event Action OnLobbyLeft;           // Leave 성공
     public event Action<List<Lobby>> OnLobbyListUpdated; // Query 결과
 
     float _HeartbeatTimer;
@@ -22,10 +21,6 @@ public class LobbyManager : MonoBehaviour
 
     float _PollTimer;
     const float POLL_INTERVAL = 2f; // 매 n초 갱신
-
-    public Allocation _HostAllocation { get; private set; } // Host만 세팅
-    public string _RelayJoinCode { get; private set; }      // Host/Client 모두 사용
-
 
     void Awake()
     {
@@ -58,23 +53,6 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    public void SetRelayAsHost(Allocation allocation, string joinCode)
-    {
-        _HostAllocation = allocation;
-        _RelayJoinCode = joinCode;
-    }
-
-    public void SetRelayJoinCode(string joinCode)
-    {
-        _RelayJoinCode = joinCode;
-    }
-
-    public void ClearRelayCache()
-    {
-        _HostAllocation = null;
-        _RelayJoinCode = null;
-    }
-
     async Task SendHeartbeatSafe()
     {
         try { await LobbyService.Instance.SendHeartbeatPingAsync(_CurrentLobby.Id); }
@@ -92,7 +70,6 @@ public class LobbyManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            // 실패
             Debug.LogWarning($"[Lobby] Poll failed: {e.Message}");
         }
     }
@@ -217,12 +194,15 @@ public class LobbyManager : MonoBehaviour
         {
             await LobbyService.Instance.RemovePlayerAsync(_CurrentLobby.Id, AuthenticationService.Instance.PlayerId);
 
-            
             _CurrentLobby = null;
             _HeartbeatTimer = 0f;
-            _PollTimer = 0f;           
+            _PollTimer = 0f;
             OnLobbyLeft?.Invoke();
-            ClearRelayCache();
+
+            // 세션 캐시는 LobbyManager가 아니라 GameSessionManager가 관리
+            if (GameSessionManager._Inst != null)
+                GameSessionManager._Inst.ClearRelayCache();
+
             return true;
         }
         catch (Exception e)

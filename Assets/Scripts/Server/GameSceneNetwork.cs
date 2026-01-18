@@ -10,6 +10,7 @@ using UnityEngine;
 public class GameSceneNetwork : MonoBehaviour
 {
     LobbyManager _LobbyManager;
+    GameSessionManager _SessionManager;
     NetworkManager _NetworkManager;
     UnityTransport _Transport;
 
@@ -41,6 +42,13 @@ public class GameSceneNetwork : MonoBehaviour
             return false;
         }
 
+        _SessionManager = GameSessionManager._Inst;
+        if (_SessionManager == null)
+        {
+            Debug.LogError("[GameNet] GameSessionManager null. 로비 씬에서 생성되어 DontDestroyOnLoad로 유지돼야 함.");
+            return false;
+        }
+
         _NetworkManager = NetworkManager.Singleton;
         if (_NetworkManager == null)
         {
@@ -60,11 +68,10 @@ public class GameSceneNetwork : MonoBehaviour
 
     async Task StartHostAsync()
     {
-        // Host는 로비(Start 버튼)에서 만들어둔 Allocation을 사용해야 함
-        Allocation alloc = _LobbyManager._HostAllocation;
+        Allocation alloc = _SessionManager._HostAllocation;
         if (alloc == null)
         {
-            Debug.LogError("[GameNet] Host allocation null. 로비에서 Start 시 CreateAllocationAsync를 호출하고 캐시했는지 확인.");
+            Debug.LogError("[GameNet] Host allocation null. Room Start에서 Allocation 캐시가 됐는지 확인.");
             return;
         }
 
@@ -80,16 +87,15 @@ public class GameSceneNetwork : MonoBehaviour
         _NetworkManager.StartHost();
         Debug.Log("[GameNet] StartHost ok (Relay)");
 
-        await Task.CompletedTask; // async 시그니처 유지(추후 확장 대비)
+        await Task.CompletedTask;
     }
 
     async Task StartClientAsync()
     {
-        // Client는 로비 데이터에서 캐시한 JoinCode로 JoinAllocation
-        string joinCode = _LobbyManager._RelayJoinCode;
+        string joinCode = _SessionManager._RelayJoinCode;
         if (string.IsNullOrWhiteSpace(joinCode))
         {
-            Debug.LogError("[GameNet] relayJoinCode empty. 씬 로드 전 LobbyRoomUIManager에서 캐시했는지 확인.");
+            Debug.LogError("[GameNet] relayJoinCode empty. 룸 폴링에서 JoinCode 캐시가 됐는지 확인.");
             return;
         }
 
